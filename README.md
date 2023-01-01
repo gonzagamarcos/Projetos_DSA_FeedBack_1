@@ -17,4 +17,3 @@ Data Sacience Academy (DSA)
 
 
 # Essa é a primeira versão do Projeto, o próximo passo com esse projeto é levá-lo para o Azure Machine Learning, e publicar o Modelo fazendo o Deploy.
-
