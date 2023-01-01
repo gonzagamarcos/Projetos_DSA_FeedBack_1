@@ -1,8 +1,8 @@
-Projetos_DSA_FeedBack_1 - Machine Learning em Logística Prevendo o Consumo de Energia de Carros Elétricos
-Big Data Analytics com R e Microsoft Azure Machine Learning
-Aluno: Marcos Vinícius Gonzaga
-Formação Cientista de Dados
-Data Sacience Academy (DSA)
+# Projetos_DSA_FeedBack_1 - Machine Learning em Logística Prevendo o Consumo de Energia de Carros Elétricos
+# Big Data Analytics com R e Microsoft Azure Machine Learning
+# Aluno: Marcos Vinícius Gonzaga
+# Formação Cientista de Dados
+# Data Sacience Academy (DSA)
 
 Problema de Negócio: Uma empresa da área de transporte e logística deseja migrar sua frota para carros elétricos com o objetivo de reduzir os custos. Antes de tomar a decisão, a empresa gostaria de prever o consumo de energia de carros elétricos com base em diversos fatores de utilização e características dos veículos.
 
