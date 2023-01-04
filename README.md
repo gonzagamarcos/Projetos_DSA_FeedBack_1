@@ -6,7 +6,7 @@ Aluno: Marcos Vinícius Gonzaga
 
 Formação Cientista de Dados
 
-Data Sacience Academy (DSA)
+Data Science Academy (DSA)
 
 Problema de Negócio: Uma empresa da área de transporte e logística deseja migrar sua frota para carros elétricos com o objetivo de reduzir os custos. Antes de tomar a decisão, a empresa gostaria de prever o consumo de energia de carros elétricos com base em diversos fatores de utilização e características dos veículos.
 
