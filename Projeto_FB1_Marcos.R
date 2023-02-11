@@ -1,3 +1,5 @@
+# Segunda Versão do Projeto.
+
 # Projeto com Feedback 1: 
 # Machine Learning em Logística Prevendo o Consumo de Energia de Carros Elétricos
 
@@ -21,6 +23,10 @@ library(ggplot2)
 library(readxl)
 library(corrplot)
 library(caTools)
+library(rpart)
+library(e1071)
+library(randomForest)
+
 
 # Etapa 2: Carregando Dados
 df <- read_excel("FEV-data-Excel.xlsx")
@@ -56,8 +62,12 @@ casos_incompletos <- sum(!complete.cases(df))
 casos_incompletos
 
 # Etapa 3.3.2: Percentual de casos incompletos no Dataset
-percentual = (casos_incompletos/53) * 100
-percentual
+percentual_incompletos = round((casos_incompletos/53) * 100, 2)
+print(percentual_incompletos) # 20,75%
+
+percentual_completos = round((100 - percentual_incompletos), 2)
+print(percentual_completos) # 79,25%
+
 
 # Etapa 3.3.3: Removendo o objeto anterior para liberar memória RAM
 rm(percentual)
@@ -122,6 +132,17 @@ rm(new_names)
 # Etapa 6: Criando uma nova variável, relação "peso/potencia" para determinar 
 # o desempenho do carro
 
+relacao_peso_potencia = df%>%
+  select(`Potencia_Motor(KM)`, `Peso_Vazio(kg)`) %>%
+  ggplot(aes(x = `Peso_Vazio(kg)`, y = `Potencia_Motor(KM)`)) +
+  xlab("Peso Vazio (kg)") +
+  ylab("Potência do Motor (KM)") +
+  ggtitle("Relação entre peso vazio e potência do motor") +
+  geom_point() + geom_smooth()
+
+relacao_peso_potencia
+
+
 # Etapa 6.1: Copiando os dados da variável "Potencia_Motor(KM)" para uma
 # variável temporária
 potencia <- df$`Potencia_Motor(KM)`
@@ -180,6 +201,7 @@ rm(variaveis_numericas)
 
 ##### Plots e Estatísticas ##### 
 
+#### Plots ####
 
 # Etapa 11: Criando uma Matrix de Correlação para compreender o relacionamento 
 # entre as variáveis numéricas
@@ -324,6 +346,17 @@ ggplot(df2, aes(y = `Consumo_Energia(KWh/100km)`, fill = Fabricante)) +
   ylab("Consumo de Energia (kwh/100km)")
 
 
+#### Estatística ##### 
+
+# Verificando se os dados da variável target segue uma distribuição normal
+test_shapiro <- shapiro.test(df2$`Consumo_Energia(KWh/100km)`)
+test_shapiro # p-value = 0.0001665
+
+
+#### Conclusão da análise acima:
+# p-value < 0.05, rejeita-se H0 (hipótese nula) e conclui que a amostra não vem de uma 
+# distribuição normal.
+
 
 ##### Análise Preditiva ##### 
 
@@ -356,132 +389,205 @@ dados_teste = subset(dados_numericos, split == FALSE)
 View(dados_teste)
 dim(dados_teste)
 
-# Etapa 14.2.1: Criando o Modelo Preditivo, versão 1:
-modelo_v1 <- lm(`Consumo_Energia(KWh/100km)` ~ ., data = dados_treino)
 
-# Etapa 14.2.2: Visualizando os coeficientes
+#### Importante ####
+# Alguns modelos, como a regressão linear, são baseados na suposição de que os dados sejam 
+# normalmente distribuídos.
+
+# Etapa 15: Criando o Modelo Preditivo 1, Arvóre de Decisão versão ANOVA:
+modelo_v1 <- rpart(`Consumo_Energia(KWh/100km)` ~ ., data = dados_treino, method = "anova")
+
+# Etapa 15.1: Visualizando os coeficientes
 modelo_v1
-summary(modelo_v1) # R-squared: 0.97
+summary(modelo_v1)
+plot(modelo_v1, branch = 0.8, margin = 0.1)
+text(modelo_v1)
+
+# Etapa 15.2: Prevendo o Consumo com os dados de teste:
+previsao_v1 <- predict(modelo_v1, dados_teste)
+
+# Etapa 15.3: Cálculo das métricas de avaliação
+mse_modelo_v1 <- mean((previsao_v1 - dados_teste$`Consumo_Energia(KWh/100km)`)^2)
+mae_modelo_v1 <- mean(abs(previsao_v1 - dados_teste$`Consumo_Energia(KWh/100km)`))
+acuracia_modelo_v1 <- 1 - mean(abs(previsao_v1 - dados_teste$`Consumo_Energia(KWh/100km)`)/dados_teste$`Consumo_Energia(KWh/100km)`)
+
+# Etapa 15.4: Visualizando os valores previstos e observados para "previsao_v1"
+print(paste("MSE:", mse_modelo_v1)) # 2.57
+print(paste("MAE:", mae_modelo_v1)) # 1.33
+print(paste("Acurácia:", acuracia_modelo_v1)) # 0.91
 
 #### Conclusão do modelo_v1: ####
-# O modelo apresentou um nível de precisão alto, alguns outros fatores que ajudam
-# a explicar isso, além de todo o processo de Limpeza e Transformação executado
-# durante a Análise Exploratória, são que o conjunto de dados é relativamente 
-# pequeno, e muitos parâmetros com uma alta correlação com a variável target foram 
-# usados para treinar o modelo. Devido a esses fatores vou permanecer somente com
-# essa versão de modelo de análise de regressão.
+# O modelo apresentou um nível de precisão alto de 91%, assim como o MSE que representa o erro 
+# quadrático médio entre os valores previstos e os valores reais, 2.57 (quanto menor melhor) e 
+# o MAE que representa o erro absoluto médio entre os valores previstos e os valores reais, 1.33
+# (quanto menor melhor o modelo).
 
 
-# Etapa 15: Prevendo o Consumo com os dados de teste:
-previsao_v1 <- predict(modelo_v1, dados_teste)
-previsao_v1
+# Criando o Modelo Preditivo 2, Arvóre de Decisão versão POISSON:
+modelo_v1_poisson <- rpart(`Consumo_Energia(KWh/100km)` ~ ., data = dados_treino, method = "poisson")
 
-# Etapa 15.1: Visualizando os valores previstos e observados para "previsao_v1"
-resultados_v1 <- cbind(previsao_v1, dados_teste$`Consumo_Energia(KWh/100km)`) 
-colnames(resultados_v1) <- c('Previsto','Real')
-resultados_v1 <- as.data.frame(resultados_v1)
-View(resultados_v1)
+# Prevendo o Consumo com os dados de teste:
+previsao_v1_poisson <- predict(modelo_v1_poisson, dados_teste)
 
-# Etapa 16: Para fins de estudo e entender mais como o modelo criado acima se
-# comporta, abaixo vamos utilizar os dados que foram removidos do Dataset original
-# na Etapa 9, como um exemplo de validação para o modelo_v1.
+# Cálculo das métricas de avaliação
+mse_modelo_v2_poisson <- mean((previsao_v1_poisson - dados_teste$`Consumo_Energia(KWh/100km)`)^2)
+mae_modelo_v2_poisson <- mean(abs(previsao_v1_poisson - dados_teste$`Consumo_Energia(KWh/100km)`))
+acuracia_modelo_v2_poisson <- 1 - mean(abs(previsao_v1_poisson - dados_teste$`Consumo_Energia(KWh/100km)`)/dados_teste$`Consumo_Energia(KWh/100km)`)
 
-View(removed_col)
+# Visualizando os valores previstos e observados para "previsao_v1_poisson"
+print(paste("MSE:", mse_modelo_v2_poisson)) # 2.57
+print(paste("MAE:", mae_modelo_v2_poisson)) # 1.34
+print(paste("Acurácia:", acuracia_modelo_v2_poisson)) # 0.91
 
-# Etapa 16.1: Criando uma nova variável
-validacao <- removed_col
-
-# Etapa 16.2: Removendo o objeto anterior para liberar memória RAM
-rm(removed_col)
-
-# Etapa 16.3: Selecionando apenas as colunas numéricas
-variaveis_numericas_2 <- sapply(validacao, is.numeric)
-validacao_numericos <- validacao[variaveis_numericas_2]
-View(validacao_numericos)
+#### Conclusão do modelo_v1_poisson: ####
+# O modelo apresentou as mesmas medidas do primeio modelo usando method = anova, ouve apenas uma 
+# pequena diferença no MAE foi 0.01 pontos maior que o primeiro modelo, com essas configuração não
+# diferença significativa entre os modelos.
 
 
-# Etapa 16.2: Removendo o objeto anterior para liberar memória RAM
-rm(validacao)
+# Etapa 16: Criando o Modelo Preditivo 2, SVM:
+modelo_v2 <- svm(`Consumo_Energia(KWh/100km)` ~ ., data = dados_treino, type = "nu-regression")
 
+# Etapa 16.1: Visualizando o modelo acima
+summary(modelo_v2)
 
-# Etapa 16.4: Excluindo a variável Target, a mesma será prevista pelo modelo
-validacao_numericos$`Consumo_Energia(KWh/100km)` <- NULL
-View(validacao_numericos)
-
-
-# Etapa 16.5: Função que realiza a Imputação do valor da média, de cada coluna 
-# com seus respectivos valores ausêntes
-imputacao <- function(x){
-  for (i in 1:ncol(x)) {
-    medias <- mean(as.numeric(unlist(x[,i])), na.rm = TRUE)
-    for (j in 1:nrow(x)){
-      if (is.na(x[j,i]))
-        x[j,i] <- medias
-    }
-  }
-  return(x)
-}
-
-
-# Etapa 16.6: Fazendo a chamada da função "Imputação" no Dataset
-validacao_numericos <- imputacao(validacao_numericos)
-
-class(validacao_numericos)
-View(validacao_numericos)          
-
-
-# Etapa 16.7: Fazendo a Previsão no Dataset de "Validação"
-previsao_v2 <- predict(modelo_v1, validacao_numericos)
+# Etapa 16.2: Prevendo o Consumo com os dados de teste:
+previsao_v2 <- predict(modelo_v2, dados_teste)
 previsao_v2
 
+# Etapa 16.3: Calculo das métricas de avaliação
+mse <- mean((previsao_v2 - dados_teste$`Consumo_Energia(KWh/100km)`)^2)
+mae <- mean(abs(previsao_v2 - dados_teste$`Consumo_Energia(KWh/100km)`))
+acuracia <- 1 - mean(abs(previsao_v2 - dados_teste$`Consumo_Energia(KWh/100km)`)/dados_teste$`Consumo_Energia(KWh/100km)`)
 
-# Etapa 16.8: Incluindo a Previsão no Dataset
-validacao_final <- cbind(validacao_numericos, previsao_v2) 
-colnames(validacao_final)[21] <- "Consumo_Previsto"
+# Etapa 16.4: Visualizando os valores previstos e observados para "previsao_v1"
+print(paste("MSE:", mse)) # 2.60
+print(paste("MAE:", mae)) # 1.21
+print(paste("Acurácia:", acuracia)) # 0.92
 
-View(validacao_final)
+
+#### Conclusão do modelo_v2: ####
+# O modelo apresentou um nível de precisão de 92% maior que o modelo_v1, mas o MSE foi um pouco maior, 2.60
+# (ainda um bom valor) e o MAE de 1.21 também menor comparando com o modelo_v1.
 
 
-#### Exemplo ####
+#### Observação ####
 
-# Abaixo uma tentativa de ilustrar a minha sujestão de como o dado final sobre a
-# Previsão do Consumo de Energia, poderia ser apresentado forma visual aos
-# tomadores de decisão.
+# Para o modelo com RandomForest é necessario trocar os nomes das colunas, por conta da sintaxe dos 
+# nomes o Modelo apresentou erro.
 
-# Etapa 17: Data Frame dados de Teste + Consumo Previsto
-teste_final <- cbind(dados_teste, previsao_v1)
-colnames(teste_final)[18] <- "Consumo_Previsto"
+# Salvando o dados_treino em uma nova variável
+dados_treino_rf <- dados_treino
 
-View(teste_final)
+# Alterando os nomes das colunas do conjunto de dados_treino
+dados_treino_rf1 <- colnames(dados_treino_rf)
 
-# Etapa 18: Obtendo os fabricantes dos carros com os valores previsto na 
-# previsao_v1
+dados_treino_rf1 [1] <- "col1"
+dados_treino_rf1 [2] <- "col2"
+dados_treino_rf1 [3] <- "col3"
+dados_treino_rf1 [4] <- "col4"
+dados_treino_rf1 [5] <- "col5"
+dados_treino_rf1 [6] <- "col6"
+dados_treino_rf1 [7] <- "col7"
+dados_treino_rf1 [8] <- "col8"
+dados_treino_rf1 [9] <- "col9"
+dados_treino_rf1 [10] <- "col10"
+dados_treino_rf1 [11] <- "col11"
+dados_treino_rf1 [12] <- "col12"
+dados_treino_rf1 [13] <- "col13"
+dados_treino_rf1 [14] <- "col14"
+dados_treino_rf1 [15] <- "col15"
+dados_treino_rf1 [16] <- "alvo"
+dados_treino_rf1 [17] <- "col17"
 
-previsao_fabricante <- left_join(df, teste_final)
-previsao_fabricante <- na.omit(previsao_fabricante)
+# Atribuindo os nomes do vetor ao dados_treino_rf
+colnames(dados_treino_rf) <- dados_treino_rf1
 
-View(previsao_fabricante)
-head(previsao_fabricante)
+# Etapa 17: Criando Modelo Preditivo 3, Random Forest:
 
-# Etapa 19: Gráfico 6 - Consumo_Previsto x Fabricante, para os dados de Teste
-summary(previsao_fabricante$Consumo_Previsto)
+# Segundo modelo sem determinar um numero minímo de nós
+set.seed(123)
+modelo_v3_1 <- randomForest(alvo ~ ., data = dados_treino_rf, ntree = 100, nodesize = 10)
+modelo_v3_1 # Mean of squared residuals: 3.34 
 
-ggplot(previsao_fabricante, aes(y = Consumo_Previsto, x = Fabricante, fill = Fabricante)) +
-  geom_bar(stat = "identity") + ggtitle("Consumo_Previsto por Fabricante - Dados de Teste") + 
-  scale_y_continuous(limits = c(0,50), breaks = seq(0,50,5)) +
-  theme_classic(base_size = 14) + xlab("Fabricantes") + 
-  ylab("Previsao do Consumo (kWh/100km)") 
 
-# Etapa 20: Conclusão
-# Como produto final, fiz o Gráfico 6,  no intuito de ilustrar todo o trabalho 
-# realizado. O Gráfico acima mostra a relação de Fabricantes dos carros que 
-# foram selecionados randomicamente na Etapa 14.2, a ilustração é específica das
-# previsões realizadas pelo modelo nos dados de Teste. O objetivo era criar um
-# modelo que fizesse as previsões do Consumo de Energia dos carros foi criando com
-# sucesso. Todo processo que foi desenvolvido da carga de dados a previsão final,
-# foi seguindo a metodologia aprendida, e aplicando os conceitos ensinados nas 
-# aulas.
+# Segundo modelo sem determinar um numero minímo de nós
+modelo_v3_2 <- randomForest(alvo ~ ., data = dados_treino_rf, ntree = 100)
+modelo_v3_2 # Mean of squared residuals: 2.98
+
+
+# Análise dos Modelos criados acima: 
+# Quanto menor o valor dessa métrica, melhor o modelo se ajustou aos dados de treinamento, 
+# o que geralmente indica que o modelo está capturando bem as tendências nos dados e fazendo 
+# previsões mais precisas, dito isso dos modelos criado vou seguir com o segundo modelo criado
+# modelo_v3_2
+
+
+# Salvando o dados_teste em uma nova variável
+dados_teste_rf <- dados_teste
+
+# Alterando os nomes das colunas do conjunto de dados_teste
+dados_teste_rf1 <- colnames(dados_teste_rf)
+
+dados_teste_rf1 [1] <- "col1"
+dados_teste_rf1 [2] <- "col2"
+dados_teste_rf1 [3] <- "col3"
+dados_teste_rf1 [4] <- "col4"
+dados_teste_rf1 [5] <- "col5"
+dados_teste_rf1 [6] <- "col6"
+dados_teste_rf1 [7] <- "col7"
+dados_teste_rf1 [8] <- "col8"
+dados_teste_rf1 [9] <- "col9"
+dados_teste_rf1 [10] <- "col10"
+dados_teste_rf1 [11] <- "col11"
+dados_teste_rf1 [12] <- "col12"
+dados_teste_rf1 [13] <- "col13"
+dados_teste_rf1 [14] <- "col14"
+dados_teste_rf1 [15] <- "col15"
+dados_teste_rf1 [16] <- "alvo"
+dados_teste_rf1 [17] <- "col17"
+
+# Atribuindo os nomes do vetor ao dados_teste_rf
+colnames(dados_teste_rf) <- dados_teste_rf1
+View(dados_teste_rf)
+
+# Etapa 18: Prevendo o Consumo(alvo) com os dados de teste:
+previsao_v3 <- predict(modelo_v3_2, dados_teste_rf)
+previsao_v3
+
+# Etapa 18.2: Cálculo das métricas de avaliação
+erro_quadratico_medio_rf <- mean((dados_teste_rf$alvo - previsao_v3)^2)
+erro_absoluto_medio_rf <- mean(abs(dados_teste_rf$alvo - previsao_v3))
+acuracia_rf <- mean(dados_teste_rf$alvo == previsao_v3)
+
+# Etapa 18.3: Visualizando os valores previstos e observados para "previsao_v1"
+print(paste("MSE:", erro_quadratico_medio_rf)) # 1.67
+print(paste("MAE:", erro_absoluto_medio_rf)) # 1.01
+print(paste("Acurácia:", acuracia_rf)) # 0
+
+
+#### Conclusão do modelo_v3: ####
+# O modelo apresentou valores para MSE e MAE menores que os dos dois modelos criados anteriormente
+# mas em contra-partida uma acurácia igual a 0.
+
+
+
+
+# Etapa 20: Conclusão Final
+# Essa foi a segunda versão do programa, as alterações foram significantes nessa nova versão,
+# sendo as prirncipais:
+# Previsão com Modelo Arvoré de Decisão (rpart)
+# Previsão com Modelo SVM
+# Previsão com Modelo RandomForest
+# Na primeira versçao do modelo, uns dos erros foi usar regressao linear em dados que não seguem
+# uma distribuição normal, corrigindo esse problema, foi removido o modelo criado anteriomente com
+# Linear Regression, e no lugar foram criados 5 modelos que analisam dados independente da normalidade
+# dos dados. Nos 5 modelos criados, foram explorados os hiperparâmetros afim de alcançar a máxima 
+# precisão. Assim o modelo que se destacou foi o modelo criado com o Support Vector Machine (SVM),
+# sendo assim a escolha para realizar as previsões deste estudo de caso.
+
 
 #### Fim ####
+
 
 
